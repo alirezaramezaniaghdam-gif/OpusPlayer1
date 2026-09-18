@@ -23,8 +23,8 @@ jobs:
 
       - name: Unzip Project
         run: |
-          unzip -o PulseLauncher.zip
-          cd PulseLauncher
+          unzip -o NoiseVolume.zip
+          cd NoiseVolume
           chmod +x gradlew || true
 
       - name: Setup Gradle
@@ -32,7 +32,7 @@ jobs:
 
       - name: Build Debug APK
         run: |
-          cd PulseLauncher
+          cd NoiseVolume
           if [ -f "./gradlew" ]; then
             ./gradlew assembleDebug
           else
@@ -42,6 +42,5 @@ jobs:
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: PulseLauncher-APK
-          path: PulseLauncher/app/build/outputs/apk/debug/*.apk
-          
+          name: NoiseVolume-APK
+          path: NoiseVolume/app/build/outputs/apk/debug/*.apk
