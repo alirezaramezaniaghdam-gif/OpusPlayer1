@@ -23,7 +23,27 @@ jobs:
 
       - name: Unzip Project
         run: |
-          unzip -o SubExtractor.zip
+          ZIP_FILE=$(ls *.zip | head -n1)
+          if [ -z "$ZIP_FILE" ]; then
+            echo "No .zip file found in repo root!"; exit 1
+          fi
+          echo "Found zip: $ZIP_FILE"
+          unzip -o "$ZIP_FILE" -d extracted_tmp
+
+          # Find the folder that actually contains settings.gradle(.kts),
+          # whether the zip was flat or wrapped in an extra top-level folder.
+          SETTINGS_PATH=$(find extracted_tmp -maxdepth 4 \( -name "settings.gradle" -o -name "settings.gradle.kts" \) | head -n1)
+          if [ -z "$SETTINGS_PATH" ]; then
+            echo "Could not find settings.gradle inside the zip. Zip contents:"
+            find extracted_tmp
+            exit 1
+          fi
+          PROJECT_DIR=$(dirname "$SETTINGS_PATH")
+          echo "Project root found at: $PROJECT_DIR"
+
+          shopt -s dotglob
+          mv "$PROJECT_DIR"/* .
+          rm -rf extracted_tmp
           chmod +x gradlew || true
 
       - name: Setup Gradle
@@ -40,5 +60,5 @@ jobs:
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: SubExtractor-APK
+          name: OpusPlayer1-APK
           path: app/build/outputs/apk/debug/*.apk
