@@ -3,62 +3,50 @@ name: Build Android APK
 on:
   push:
     branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+      - uses: actions/setup-node@v4
         with:
-          java-version: '17'
-          distribution: 'temurin'
+          node-version: 20
 
-      - name: Unzip Project
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Unzip project
         run: |
           ZIP_FILE=$(ls *.zip | head -n1)
-          if [ -z "$ZIP_FILE" ]; then
-            echo "No .zip file found in repo root!"; exit 1
-          fi
           echo "Found zip: $ZIP_FILE"
-          unzip -o "$ZIP_FILE" -d extracted_tmp
+          unzip -o "$ZIP_FILE" -d proj_tmp
+          CFG=$(find proj_tmp -maxdepth 3 -name capacitor.config.json | head -n1)
+          if [ -z "$CFG" ]; then echo "capacitor.config.json not found"; find proj_tmp; exit 1; fi
+          mkdir app_src
+          cp -a "$(dirname "$CFG")"/. app_src/
 
-          # Find the folder that actually contains settings.gradle(.kts),
-          # whether the zip was flat or wrapped in an extra top-level folder.
-          SETTINGS_PATH=$(find extracted_tmp -maxdepth 4 \( -name "settings.gradle" -o -name "settings.gradle.kts" \) | head -n1)
-          if [ -z "$SETTINGS_PATH" ]; then
-            echo "Could not find settings.gradle inside the zip. Zip contents:"
-            find extracted_tmp
-            exit 1
-          fi
-          PROJECT_DIR=$(dirname "$SETTINGS_PATH")
-          echo "Project root found at: $PROJECT_DIR"
-
-          shopt -s dotglob
-          mv "$PROJECT_DIR"/* .
-          rm -rf extracted_tmp
-          chmod +x gradlew || true
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
-
-      - name: Build Debug APK
+      - name: Install and prepare
+        working-directory: app_src
         run: |
-          if [ -f "./gradlew" ]; then
-            ./gradlew assembleDebug
-          else
-            gradle assembleDebug
-          fi
+          npm install
+          node scripts/localize.js
+          npx cap add android
+          npx cap sync android
 
-      - name: Upload APK Artifact
-        uses: actions/upload-artifact@v4
+      - name: Landscape orientation
+        working-directory: app_src
+        run: sed -i 's/<activity/<activity android:screenOrientation="landscape"/' android/app/src/main/AndroidManifest.xml
+
+      - name: Build debug APK
+        working-directory: app_src/android
+        run: chmod +x gradlew && ./gradlew assembleDebug
+
+      - uses: actions/upload-artifact@v4
         with:
-          name: OpusPlayer1-APK
-          path: app/build/outputs/apk/debug/*.apk
+          name: ShabShamshir-APK
+          path: app_src/android/app/build/outputs/apk/debug/app-debug.apk
